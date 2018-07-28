@@ -1,0 +1,10 @@
+docker run -it --mount type=bind,source="$(pwd)"/app,target=/app -p 80:5000 -h 0.0.0.0 hayadata
+
+
+
+omer local:
+docker run -it --mount type=bind,source="C:\Users\Omer\dev\hayadata\dockerthings\app",target=/app -p 80:5000 -h 0.0.0.0 hayadata
+
+hayadata remote:
+cd into hayadata/hayadata/dockerthings
+docker run -it --mount type=bind,source="$(pwd)"/app,target=/app -p 5001:5000 -h 0.0.0.0 hayadata

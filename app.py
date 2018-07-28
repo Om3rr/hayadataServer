@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request, send_from_directory
-from algush import articles, query, get_idx_by_key, whos_primary, query_by, dont_sort, idxs_to_articles, multiply_vectors, sort_by_distances, search_by_key
+from algush import articles, get_idx_by_key, whos_primary, query_by, dont_sort, idxs_to_articles, multiply_vectors, sort_by_distances, search_by_key
 import numpy as np
 import json
 import pdb
@@ -9,14 +9,6 @@ app = Flask(__name__, static_url_path='', static_folder='dist', )
 @app.route('/api/articles')
 def get_atricles():
   return jsonify(articles())
-
-
-@app.route('/api/query')
-def query_article():
-  article_idx = request.args.get('article')
-  state = request.args.get('state') or "title"
-  print("state is %s" % state)
-  return jsonify(query(article_idx, state))
 
 @app.route('/api/multiple')
 def query_multi():

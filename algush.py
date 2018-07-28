@@ -5,31 +5,7 @@ import random
 
 ARTICLES_PER_PAGE = 102
 
-#
-# f = open('db.pickle', 'rb')
-# raw_data = pickle.load(f)
-# data = {}
-# keyz = ['abstract', 'title', 'title vector', 'abstract vector']
-# key_to_idx = {x: idx for idx, x in enumerate(set(reduce(lambda x, y: x + y, [list(raw_data[x].keys()) for x in keyz])))}
-# idx_to_key = {v: k for k, v in key_to_idx.items()}
-# for k in raw_data:
-#   data[k] = [0] * len(key_to_idx)
-#   unspecified_list = [x if x not in raw_data[k] else None for x in key_to_idx.keys()]
-#   for kk in raw_data[k]:
-#     idx = key_to_idx[kk]
-#     data[k][idx] = raw_data[k][kk]
-#   for kk in unspecified_list:
-#     if kk is None:
-#       continue
-#     idx = key_to_idx[kk]
-#     if k.endswith('vector'):
-#       data[k][idx] = np.zeros(300)
-#     else:
-#       data[k][idx] = 'Empty'
-#
-# new_data = {'data': data, 'key_to_idx': key_to_idx}
-# fw = open('data.pkl', 'wb')
-# pickle.dump(new_data, fw)
+
 fw = open('data.pkl', 'rb')
 raw_data = pickle.load(fw)
 
@@ -56,37 +32,49 @@ def articles():
     map(lambda x: {"title": data['title'][x], "abstract": data['abstract'][x], "index": x, "key": idx_to_key[x]}, samp))
 
 
-def query(idx, by='abstract'):
-  idx = int(idx)
-  to_query = index_titles if by == 'title' else index_abstract
-  vectors = title_vectors if by == 'title' else abstract_vectors
-  dist, scores = to_query.search(np.asarray([vectors[idx]]), ARTICLES_PER_PAGE)
-  articles = []
-  scores = scores[0]
-  dist = dist[0]
-  for d, s in zip(dist, scores):
-    articles.append({"title": data['title'][s], "abstract": data['abstract'][s], "index": int(s), "distance": int(d)})
-  return articles
-
-
 def query_by(idx, by='abstract', N=1000):
+  """
+  wrapper to query function to make an easier query
+  :param idx: idx of the patent
+  :param by: abstract\title
+  :param N: Size of array to return
+  :return:
+  """
   to_query = index_titles if by == 'title' else index_abstract
   vectors = title_vectors if by == 'title' else abstract_vectors
   return to_query.search(np.asarray([vectors[idx]]), N)
 
 
 def idxs_to_articles(idxs, distances):
+  """
+  map a list of idxs to patents representations
+  :param idxs: a list of integers
+  :param distances: distance for each idx
+  :return: a list of articles
+  """
   articles = []
   for d, s in zip(distances, idxs):
     articles.append({"title": data['title'][s], "abstract": data['abstract'][s], "index": int(s), "distance": int(d), "key": idx_to_key[s]})
   return articles
 
 def get_idx_by_key(key):
+  """
+  wrapper to key_to_idx dict
+  :param key: patent key
+  :return: patent idx
+  """
   if (key not in key_to_idx):
     return None
   return key_to_idx[key]
 
 def multiply_vectors(idxs, idx, by):
+  """
+  Calculate L2 norm of idxs against idx
+  :param idxs: a list of integeres that represent patents
+  :param idx: a integere of patent that we want to compare
+  :param by: title\abstract
+  :return: a list of distances which each distance represent the idx in the same position
+  """
   vectors = title_vectors if by == 'title' else abstract_vectors
   vector = vectors[idx]
   vs = np.take(vectors, idxs, axis=0) - vector
@@ -95,6 +83,13 @@ def multiply_vectors(idxs, idx, by):
   return np.sqrt(mul)
 
 def sort_by_distances(idxs, distances, states):
+  """
+  a function that sort the given indexes by distances and states
+  :param idxs: a list of patents
+  :param distances: list of lists distances[0][idx] represent the first distance of patent idx
+  :param states: represent the state of each filter (0 - doesnt matter, 1 - similar, 2-dissimilar)
+  :return: a tuple of idxs, dist (sorted)
+  """
   d1, d2 = distances
   s1, s2 = states
   idxs = list(idxs)
@@ -117,9 +112,21 @@ def sort_by_distances(idxs, distances, states):
   return idxs, dist
 
 def dont_sort(p, m):
+  """
+  predictaor to check if we want to sort or not
+  :param p: purpose object
+  :param m: mechanism object
+  :return: to sort or not.
+  """
   return p['state'] * m['state'] == 0
 
 def whos_primary(p, m):
+  """
+  predicator to check prioritize of purpose and mechanism
+  :param p: purpose object
+  :param m: mechanism object
+  :return: [titleA, titleB], [objA, objB]
+  """
   if p['state'] == 1:
     return ['title', 'abstract'], [p, m]
   if m['state'] == 1:
@@ -128,6 +135,11 @@ def whos_primary(p, m):
 
 
 def search_by_key(key):
+  """
+  For patent suggestion, function that search in the data internally
+  :param key: free text of the user.
+  :return: a list of relevant patent, each patent will look like {key: key, title: title}
+  """
   okays = []
   key = key.lower()
   for idx, title in enumerate(data['title']):

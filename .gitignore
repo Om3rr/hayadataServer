@@ -1,3 +1,9 @@
 *.pkl
 *.pickle
 alot_of_text
+.idea/*
+.idea
+venv
+venv/*
+__pycache__/*
+__pycache__

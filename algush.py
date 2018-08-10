@@ -2,7 +2,7 @@ import faiss
 import pickle
 import numpy as np
 import random
-
+import itertools
 ARTICLES_PER_PAGE = 102
 
 
@@ -16,6 +16,10 @@ idx_to_key = {v: k for k, v in key_to_idx.items()}
 m = min(len(data['abstract vector']), len(data['title vector']))
 abstract_vectors = np.asarray(data['abstract vector'], dtype=np.float32)
 title_vectors = np.asarray(data['title vector'], dtype=np.float32)
+data['purp_vecs'] = [x if isinstance(x, np.ndarray) else np.zeros(300) for x in data['purp_vecs']]
+data['mech_vecs'] = [x if isinstance(x, np.ndarray) else np.zeros(300) for x in data['mech_vecs']]
+purp_vectors = np.asarray(data['purp_vecs'], dtype=np.float32)
+mech_vectors = np.asarray(data['mech_vecs'], dtype=np.float32)
 
 _, d = abstract_vectors.shape
 nq = 10000
@@ -25,14 +29,23 @@ _, d = title_vectors.shape
 index_titles = faiss.IndexFlatL2(d)
 index_titles.add(title_vectors)
 
+_, d = purp_vectors.shape
+index_purp = faiss.IndexFlatL2(d)
+index_purp.add(purp_vectors)
+
+_, d = mech_vectors.shape
+index_mech = faiss.IndexFlatL2(d)
+index_mech.add(mech_vectors)
+
 
 def articles():
   samp = random.sample(range(0, len(data['abstract'])), ARTICLES_PER_PAGE)
-  return list(
-    map(lambda x: {"title": data['title'][x], "abstract": data['abstract'][x], "index": x, "key": idx_to_key[x]}, samp))
+  return idxs_to_articles(samp, [0]* ARTICLES_PER_PAGE)
+  # return list(
+  #   map(lambda x: {"title": data['title'][x], "abstract": data['abstract'][x], "index": x, "key": idx_to_key[x]}, samp))
 
 
-def query_by(idx, by='abstract', N=1000):
+def query_by(idx, by='abstract', N=1000, vec='true'):
   """
   wrapper to query function to make an easier query
   :param idx: idx of the patent
@@ -40,8 +53,12 @@ def query_by(idx, by='abstract', N=1000):
   :param N: Size of array to return
   :return:
   """
-  to_query = index_titles if by == 'title' else index_abstract
-  vectors = title_vectors if by == 'title' else abstract_vectors
+  if vec == 'true':
+    to_query = index_titles if by == 'title' else index_abstract
+    vectors = title_vectors if by == 'title' else abstract_vectors
+  else:
+    to_query = index_purp if by == 'title' else index_mech
+    vectors = purp_vectors if by == 'title' else mech_vectors
   return to_query.search(np.asarray([vectors[idx]]), N)
 
 
@@ -53,8 +70,20 @@ def idxs_to_articles(idxs, distances):
   :return: a list of articles
   """
   articles = []
-  for d, s in zip(distances, idxs):
-    articles.append({"title": data['title'][s], "abstract": data['abstract'][s], "index": int(s), "distance": int(d), "key": idx_to_key[s]})
+  go_down = True
+  if distances[0] < distances[-1]:
+    go_down = False
+  zipped = sorted(zip(distances, idxs), key=lambda x:x[1])
+  zipped = sorted(zipped, key=lambda x:x[0], reverse=go_down)
+  for d, s in zipped:
+    articles.append({"title": data['title'][s],
+                     "abstract": data['abstract'][s],
+                     "index": int(s),
+                     "distance": int(d),
+                     "key": idx_to_key[s],
+                     'purp_tags': list(set(list(itertools.chain.from_iterable(data['purp_tags'][s])))),
+                     'mech_tags': list(set(list(itertools.chain.from_iterable(data['mech_tags'][s])))),
+                     })
   return articles
 
 def get_idx_by_key(key):
@@ -81,6 +110,7 @@ def multiply_vectors(idxs, idx, by):
   vs = vs**2
   mul = np.sum(vs, axis=1)
   return np.sqrt(mul)
+
 
 def sort_by_distances(idxs, distances, states):
   """

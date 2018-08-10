@@ -13,6 +13,7 @@ def get_atricles():
 @app.route('/api/multiple')
 def query_multi():
   key = request.args.get('idx')
+  super_query = request.args.get('super')
   mechanism = json.loads(request.args.get('mechanism'))
   purpose = json.loads(request.args.get('purpose'))
   idx = get_idx_by_key(key)
@@ -22,7 +23,8 @@ def query_multi():
   if primary is None:
     return jsonify([])
   N = int(prim_o['slider'])
-  distances, idxs = query_by(idx, primary, N)
+  print("Super? ", super_query)
+  distances, idxs = query_by(idx, primary, N, super_query)
 
   #query one vector at a time
   distances = distances[0]
@@ -30,7 +32,7 @@ def query_multi():
   if(dont_sort(mechanism, purpose)):
     return jsonify(idxs_to_articles(idxs, distances))
   if(prim_o['state'] == sec_o['state']):
-    _, idxs_two = query_by(idx, secondary, sec_o['slider'])
+    _, idxs_two = query_by(idx, secondary, sec_o['slider'], super_query)
     all_idxs = np.unique(np.concatenate([idxs_two[0], idxs]))
     d1 = multiply_vectors(all_idxs, idx, primary)
     d2 = multiply_vectors(all_idxs, idx, secondary)

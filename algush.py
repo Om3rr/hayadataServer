@@ -79,7 +79,7 @@ def idxs_to_articles(idxs, distances):
     articles.append({"title": data['title'][s],
                      "abstract": data['abstract'][s],
                      "index": int(s),
-                     "distance": int(d),
+                     "distance": float(d),
                      "key": idx_to_key[s],
                      'purp_tags': list(set(list(itertools.chain.from_iterable(data['purp_tags'][s])))),
                      'mech_tags': list(set(list(itertools.chain.from_iterable(data['mech_tags'][s])))),

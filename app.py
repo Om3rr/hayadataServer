@@ -13,7 +13,7 @@ def get_atricles():
 @app.route('/api/multiple')
 def query_multi():
   key = request.args.get('idx')
-  super_query = request.args.get('super')
+  super_query = True
   mechanism = json.loads(request.args.get('mechanism'))
   purpose = json.loads(request.args.get('purpose'))
   idx = get_idx_by_key(key)
@@ -23,8 +23,7 @@ def query_multi():
   if primary is None:
     return jsonify([])
   N = int(prim_o['slider'])
-  print("Super? ", super_query)
-  distances, idxs = query_by(idx, primary, N, super_query)
+  distances, idxs = query_by(idx, primary, N)
 
   #query one vector at a time
   distances = distances[0]
@@ -32,7 +31,7 @@ def query_multi():
   if(dont_sort(mechanism, purpose)):
     return jsonify(idxs_to_articles(idxs, distances))
   if(prim_o['state'] == sec_o['state']):
-    _, idxs_two = query_by(idx, secondary, sec_o['slider'], super_query)
+    _, idxs_two = query_by(idx, secondary, sec_o['slider'])
     all_idxs = np.unique(np.concatenate([idxs_two[0], idxs]))
     d1 = multiply_vectors(all_idxs, idx, primary)
     d2 = multiply_vectors(all_idxs, idx, secondary)
@@ -46,6 +45,37 @@ def query_multi():
 def suggest():
   key = request.args.get('text')
   return jsonify(search_by_key(key))
+
+
+@app.route('/api/search')
+def search():
+  key = request.args.get('code')
+  idx = get_idx_by_key(key)
+  idx = int(idx)
+  dist1, idxs1 = query_by(idx, 'abstract', 100, False)
+  dist2, idxs2 = query_by(idx, 'title', 100, False)
+  dist = np.concatenate([dist1, dist2])
+  idxs = np.concatenate([idxs1, idxs2])
+  idxs = idxs.reshape((200,))
+  dist = dist.reshape((200,))
+  zipped = zip(list(idxs), dist)
+  sorted_list = sorted(zipped, key=lambda x:x[1])
+  s = set()
+  final = []
+  for idxx, dist in sorted_list:
+    if idxx == idx:
+      continue
+    if dist == 0:
+      continue
+    if idxx in s:
+      continue
+    s.add(idxx)
+    final.append((idxx, dist))
+  idxs, distances = zip(*final)
+  idxs = [idx] + list(idxs[0:-1])
+  distances = [0] + list(distances[0:-1])
+  return jsonify(idxs_to_articles(idxs, distances))
+
 
 @app.route('/<path:path>')
 def static_file(path):
